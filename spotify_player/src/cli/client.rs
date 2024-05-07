@@ -591,30 +591,74 @@ async fn handle_playlist_request(
             Ok(result)
         }
         PlaylistCommand::Add { id } => {
-            let mut result = String::new();
-            let playback = client.current_playback(None, None::<Vec<_>>).await?;
+            if let Some(ref state) = state {
+                // A non-null application's state indicates there is a running application instance.
+                // To reduce the latency of the CLI command, the player request is handled asynchronously
+                // knowing that the application will outlive the asynchronous task.
+                tokio::task::spawn({
+                    let client = client.clone();
+                    let state = state.clone();
+                    let playback = current_playback(&client, &Some(state.clone())).await?;
 
-            // get currently playing track from the playback
-            let track = match playback {
-                None => None,
-                Some(ref playback) => match playback.item {
-                    Some(rspotify::model::PlayableItem::Track(ref track)) => Some(track),
-                    _ => None,
-                },
-            };
-            match track {
-                Some(t) => {
-                    client
-                        .add_track_to_playlist(
-                            state.as_ref(),
-                            id,
-                            t.id.as_ref().expect("expected a track ID").clone(),
-                        )
-                        .await?
+                    // get currently playing track from the playback
+                    let track = match playback {
+                        None => None,
+                        Some(playback) => match playback.item {
+                            Some(rspotify::model::PlayableItem::Track(track)) => Some(track),
+                            _ => None,
+                        },
+                    };
+                    async move {
+                        match track {
+                            Some(t) => {
+                                client
+                                    .add_track_to_playlist(
+                                        &state,
+                                        id,
+                                        t.id.as_ref().expect("expected a track ID").clone(),
+                                    )
+                                    .await;
+                            }
+                            None => tracing::warn!("No track currently playing."),
+                        }
+                    }
+                });
+                Ok("Thread spawned".to_string())
+            } else {
+                let playback = current_playback(&client, &None::<_>).await?;
+
+                // get currently playing track from the playback
+                let track = match playback {
+                    None => None,
+                    Some(ref playback) => match playback.item {
+                        Some(rspotify::model::PlayableItem::Track(ref track)) => Some(track),
+                        _ => None,
+                    },
+                };
+                let mut result = String::new();
+                match track {
+                    Some(t) => {
+                        let track_id = t.id.as_ref().expect("expected a track ID").clone();
+                        client
+                            .playlist_remove_all_occurrences_of_items(
+                                id.as_ref(),
+                                [PlayableId::Track(track_id.as_ref())],
+                                None,
+                            )
+                            .await?;
+
+                        client
+                            .playlist_add_items(
+                                id.as_ref(),
+                                [PlayableId::Track(track_id.as_ref())],
+                                None,
+                            )
+                            .await?;
+                    }
+                    None => result += "No track currently playing.",
                 }
-                None => result += "No track currently playing.",
+                Ok(result)
             }
-            Ok(result)
         }
     }
 }

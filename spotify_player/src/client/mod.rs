@@ -425,7 +425,7 @@ impl Client {
                     .await?
             }
             ClientRequest::AddTrackToPlaylist(playlist_id, track_id) => {
-                self.add_track_to_playlist(Some(state), playlist_id, track_id)
+                self.add_track_to_playlist(state, playlist_id, track_id)
                     .await?;
             }
             ClientRequest::AddAlbumToQueue(album_id) => {
@@ -913,7 +913,7 @@ impl Client {
     /// Add a track to a playlist
     pub async fn add_track_to_playlist(
         &self,
-        state: Option<&SharedState>,
+        state: &SharedState,
         playlist_id: PlaylistId<'_>,
         track_id: TrackId<'_>,
     ) -> Result<()> {
@@ -933,9 +933,7 @@ impl Client {
         .await?;
 
         // After adding a new track to a playlist, remove the cache of that playlist to force refetching new data
-        if let Some(s) = state {
-            s.data.write().caches.context.remove(&playlist_id.uri());
-        };
+        state.data.write().caches.context.remove(&playlist_id.uri());
 
         Ok(())
     }
