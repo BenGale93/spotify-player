@@ -180,6 +180,7 @@ pub fn init_playlist_subcommand() -> Command {
         .subcommand(Command::new("delete").about("Delete a playlist")
             .arg(Arg::new("id")
                 .value_parser(clap::builder::NonEmptyStringValueParser::new())))
+        .subcommand(Command::new("add").about("Add the current track to a given playlist").arg(Arg::new("id").value_parser(clap::builder::NonEmptyStringValueParser::new())))
         .subcommand(Command::new("import").about("Imports all songs from a playlist into another playlist.")
             .arg(Arg::new("from")
                 .value_parser(clap::builder::NonEmptyStringValueParser::new()))

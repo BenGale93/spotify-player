@@ -319,6 +319,17 @@ fn handle_playlist_subcommand(args: &ArgMatches) -> Result<Request> {
 
             PlaylistCommand::Sync { id: pid, delete }
         }
+        "add" => {
+            let id_s = args
+                .get_one::<String>("id")
+                .expect("Playlist id is required.")
+                .to_owned();
+
+            let id = PlaylistId::from_id(id_s.to_owned())?;
+
+            println!("Adding to '{id_s}'...\n");
+            PlaylistCommand::Add { id }
+        }
         _ => unreachable!(),
     };
 

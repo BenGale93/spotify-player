@@ -162,7 +162,7 @@ async fn handle_socket_request(
             Ok(Vec::new())
         }
         Request::Playlist(command) => {
-            let resp = handle_playlist_request(client, command).await?;
+            let resp = handle_playlist_request(client, state, command).await?;
             Ok(resp.into_bytes())
         }
         Request::Search { query } => {
@@ -454,7 +454,11 @@ async fn handle_playback_request(
     Ok(())
 }
 
-async fn handle_playlist_request(client: &Client, command: PlaylistCommand) -> Result<String> {
+async fn handle_playlist_request(
+    client: &Client,
+    state: &Option<SharedState>,
+    command: PlaylistCommand,
+) -> Result<String> {
     let uid = client.current_user().await?.id;
 
     match command {
@@ -584,6 +588,32 @@ async fn handle_playlist_request(client: &Client, command: PlaylistCommand) -> R
                 }
             }
 
+            Ok(result)
+        }
+        PlaylistCommand::Add { id } => {
+            let mut result = String::new();
+            let playback = client.current_playback(None, None::<Vec<_>>).await?;
+
+            // get currently playing track from the playback
+            let track = match playback {
+                None => None,
+                Some(ref playback) => match playback.item {
+                    Some(rspotify::model::PlayableItem::Track(ref track)) => Some(track),
+                    _ => None,
+                },
+            };
+            match track {
+                Some(t) => {
+                    client
+                        .add_track_to_playlist(
+                            state.as_ref(),
+                            id,
+                            t.id.as_ref().expect("expected a track ID").clone(),
+                        )
+                        .await?
+                }
+                None => result += "No track currently playing.",
+            }
             Ok(result)
         }
     }

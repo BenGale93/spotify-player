@@ -82,6 +82,9 @@ pub enum PlaylistCommand {
         id: Option<PlaylistId<'static>>,
         delete: bool,
     },
+    Add {
+        id: PlaylistId<'static>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
